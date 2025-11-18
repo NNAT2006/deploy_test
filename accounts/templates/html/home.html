@@ -60,5 +60,51 @@
             </div>
         </div>
     </div>
-</div>
+
+    <div class="row mt-5">
+        <div class="col-12 text-center mb-4">
+            <h2 class="mb-2">Các Khóa học Nổi bật</h2>
+            <p class="lead">Đánh giá trung bình từ học viên của chúng tôi.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for course in courses %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-0 shadow-lg">
+                    <img src="{% static 'accounts/images/default-course.jpg' %}" class="card-img-top" alt="{{ course.title }}">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ course.title }}</h5>
+
+                        {% if course.rating_count > 0 %}
+                            <p class="card-text mb-1">
+                                Điểm: <strong>{{ course.average_rating|floatformat:1 }} / 5</strong>
+                                ({{ course.rating_count }} lượt)
+                            </p>
+
+                            <div class="rating-stars mb-3">
+                                {% with average=course.average_rating|floatformat:0 %}
+                                    {% for i in "12345" %}
+                                        {% if forloop.counter <= average %}
+                                            <i class="fas fa-star text-warning"></i> {% else %}
+                                            <i class="far fa-star text-secondary"></i> {% endif %}
+                                    {% endfor %}
+                                {% endwith %}
+                            </div>
+
+                        {% else %}
+                            <p class="card-text mb-3 text-muted">Chưa có đánh giá.</p>
+                        {% endif %}
+
+                        <a href="#" class="btn btn-sm btn-outline-primary">Xem chi tiết</a>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col-12 text-center">
+                <p>Hiện chưa có khóa học nào được đăng tải.</p>
+            </div>
+        {% endfor %}
+    </div>
+    </div>
 {% endblock %}

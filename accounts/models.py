@@ -1,7 +1,34 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.conf import settings
+from django.db.models import Avg
+class UserActivityLog(models.Model):
+    ACTION_CHOICES = [
+        ('login', 'Đăng nhập'),
+        ('logout', 'Đăng xuất'),
+        ('enroll_course', 'Đăng ký khóa học'),
+        ('complete_lesson', 'Hoàn thành bài học'),
+        ('submit_exam', 'Nộp bài thi thử'),
+        ('view_page', 'Xem trang'), # Thêm nếu bạn muốn log việc xem trang chung
+        # Bạn có thể thêm nhiều hành động khác ở đây
+    ]
 
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='activity_logs')
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    timestamp = models.DateTimeField(default=timezone.now)
+    details = models.TextField(blank=True, null=True)
+    # Có thể liên kết với một Model cụ thể (ví dụ: Course, Lesson, MockExam)
+    course = models.ForeignKey('Course', on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'UserActivityHistory'
+        verbose_name_plural = 'UserActivityHistory'
+
+    def __str__(self):
+        return f"[{self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}] {self.user.username} - {self.get_action_display()}"
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     avatar = models.ImageField(upload_to='profile_images/', default='profile_images/default.png')
@@ -29,6 +56,49 @@ class Course(models.Model):
 
     def __str__(self):
         return self.title
+
+    def get_average_rating(self):
+        """Tính điểm trung bình của khóa học."""
+        # Truy vấn tất cả đánh giá của khóa học này và tính điểm trung bình (Avg)
+        average = self.ratings.aggregate(Avg('rating'))['rating__avg']
+
+        # Làm tròn kết quả
+        if average is not None:
+            return round(average, 1)  # Làm tròn đến 1 chữ số thập phân
+        return 0.0
+
+    def get_rating_count(self):
+        """Đếm số lượng đánh giá."""
+        return self.ratings.count()
+
+
+class CourseRating(models.Model):
+    # Khóa ngoại đến Model Course
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='ratings')
+
+    # Khóa ngoại đến Model User (người đánh giá)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+    # Số sao (từ 1 đến 5)
+    rating = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Đánh giá từ 1 đến 5 sao."
+    )
+
+    # Nội dung đánh giá (tùy chọn)
+    comment = models.TextField(blank=True, null=True)
+
+    # Thời gian tạo
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Đảm bảo mỗi người dùng chỉ đánh giá 1 lần cho 1 khóa học
+        unique_together = ('course', 'user')
+
+        verbose_name_plural = "CourseRating"
+
+    def __str__(self):
+        return f'{self.user.username} - {self.course.title} ({self.rating} sao)'
 
 class Lesson(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lessons')

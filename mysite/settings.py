@@ -1,24 +1,14 @@
-
 from pathlib import Path
 import os
-from dotenv import load_dotenv
-# Load environment variables from .env file
+
+# --- 1. TẢI BIẾN MÔI TRƯỜNG TỪ .ENV (TÊN FILE LÀ .env, CÙNG CẤP VỚI THƯ MỤC SETTINGS NÀY) ---
 try:
     from dotenv import load_dotenv
-    # Load .env from the project root (same directory as manage.py)
+    # Đường dẫn giả định file .env nằm ở thư mục gốc (cùng cấp với manage.py)
+    # Tức là một cấp trên thư mục chứa settings.py
     env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
-    # Attempt to load .env and print small debug info so we can verify it's being read.
-    # (We only print presence/length to avoid leaking full secret values in logs.)
-    loaded = load_dotenv(env_path)
-    try:
-        key = os.environ.get('GEMINI_API_KEY')
-        url = os.environ.get('GEMINI_API_URL')
-        print(f"dotenv: loaded={loaded}, path={env_path}")
-        print(f"dotenv: GEMINI_API_KEY present={bool(key)}, length={len(key) if key else 0}")
-        print(f"dotenv: GEMINI_API_URL present={bool(url)}, length={len(url) if url else 0}")
-    except Exception:
-        # If anything goes wrong while printing debug info, ignore to avoid breaking startup
-        pass
+    load_dotenv(env_path)
+    # NOTE: ĐÃ BỎ CODE DEBUG PRINT Ở ĐÂY ĐỂ TRÁNH NHẦM LẪN
 except ImportError:
     # python-dotenv not installed; environment variables must be set externally
     pass
@@ -28,6 +18,26 @@ except Exception as e:
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# --- 2. CẤU HÌNH API KEY/URL VÀ CÁC BIẾN MÔI TRƯỜNG CHÍNH ---
+
+# Gemini / Generative API settings - Lấy trực tiếp từ môi trường
+# Nếu bạn không muốn giá trị mặc định là None, hãy dùng os.getenv('TEN_BIEN')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+# Đặt giá trị mặc định cho URL để tránh lỗi, nhưng nó sẽ được kiểm tra lại trong views
+GEMINI_API_URL = os.getenv('GEMINI_API_URL')
+
+
+# Email configuration (read from .env for SMTP)
+# Sử dụng os.getenv để tránh lỗi lặp lại ở cuối file
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') in ('True', 'true', '1')
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@example.com')
+SITE_URL = os.getenv('SITE_URL', '')
 
 
 # Quick-start development settings - unsuitable for production
@@ -58,8 +68,8 @@ INSTALLED_APPS = [
 ]
 
 # Social Auth settings
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '1007890030062-btn6b3mrm0o8spbj65bmidlqg41jihbo.apps.googleusercontent.com'  # Client ID
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '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'  # Client Secret
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '1054490141259-q58r613bd9fgcevibu6htttau6nceeco.apps.googleusercontent.com'  # Client ID
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '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'  # Client Secret
 
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',
@@ -67,17 +77,33 @@ AUTHENTICATION_BACKENDS = (
 )
 
 # Social Auth Pipeline
+# settings.py
+
+# settings.py
+
 SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_details',
     'social_core.pipeline.social_auth.social_uid',
     'social_core.pipeline.social_auth.auth_allowed',
+
+    # Nếu user đã tồn tại -> login luôn
     'social_core.pipeline.social_auth.social_user',
+
+    # Tạo username từ email (nếu user chưa tồn tại)
+    'accounts.pipeline.create_username',
+
+    # BẮT BUỘC: cho phép pipeline dùng username bạn trả về
     'social_core.pipeline.user.get_username',
+
+    # Tạo user mới
     'social_core.pipeline.user.create_user',
+
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
 )
+
+
 
 # Social Auth Settings
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
@@ -100,19 +126,7 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 # Celery Beat settings
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
-# Email configuration (read from .env for SMTP)
-if os.getenv('EMAIL_BACKEND'):
-    EMAIL_BACKEND = os.getenv('EMAIL_BACKEND')
-    EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-    EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-    EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
-    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
-else:
-    # Default: console backend for development (prints emails to console, not sent)
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    DEFAULT_FROM_EMAIL = 'no-reply@example.com'
+# --- EMAIL CONFIGURATION (ĐÃ CHUYỂN LÊN TRÊN, CHỈ ĐỂ LOGIC) ---
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -141,8 +155,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'social_django.context_processors.backends',
                 'social_django.context_processors.login_redirect',
-                # Add user progress context processor to make per-course progress
-                # available in all templates (used by the dashboard/nav)
+                # Add user progress context processor
                 'accounts.context_processors.user_progress',
             ],
         },
@@ -194,7 +207,7 @@ USE_I18N = True
 
 USE_TZ = True
 
-# Available languages (add more if you want users to switch)
+# Available languages
 from django.utils.translation import gettext_lazy as _
 LANGUAGES = [
     ('vi', _('Vietnamese')),
@@ -207,20 +220,6 @@ LANGUAGES = [
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-# Gemini / Generative API settings
-# Configure these in your environment. Do NOT commit API keys to source control.
-# 
-# Example: Use Google Generative Language REST API (generateContent endpoint):
-#   GEMINI_API_KEY = 'your-api-key-here' (from https://makersuite.google.com/app/apikey)
-#   GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=YOUR_KEY'
-#
-# Or use Bearer token auth (older style):
-#   GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
-#   Header will include: Authorization: Bearer <key>
-#
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
-GEMINI_API_URL = os.environ.get('GEMINI_API_URL', '')
 
 STATICFILES_DIRS = [
     BASE_DIR / 'accounts' / 'static',
@@ -235,15 +234,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-
-# Tao bien cai nhac nho mail
-import os
-
-EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') in ('True', 'true', '1')
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', DEFAULT_FROM_EMAIL)
-SITE_URL = os.environ.get('SITE_URL', '')
+# --- ĐÃ XÓA KHỐI CẤU HÌNH EMAIL VÀ GEMINI LẶP LẠI Ở CUỐI FILE ---
+import sys
+if 'runserver' in sys.argv:
+    print("\n--- DEBUG GEMINI API KEY ---")
+    FINAL_KEY_VALUE = os.getenv('GEMINI_API_KEY')
+    FINAL_URL_VALUE = os.getenv('GEMINI_API_URL')
+    print(f"FINAL GEMINI_API_KEY (Is set?): {bool(FINAL_KEY_VALUE)}")
+    print(f"FINAL GEMINI_API_URL (Is set?): {bool(FINAL_URL_VALUE)}")
+    if FINAL_KEY_VALUE:
+         print(f"KEY LENGTH: {len(FINAL_KEY_VALUE)}")
+    print("----------------------------\n")
