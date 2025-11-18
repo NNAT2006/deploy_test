@@ -1,5 +1,7 @@
 from pathlib import Path
 import os
+import dj_database_url
+from dj_config_url import config
 
 # --- 1. TẢI BIẾN MÔI TRƯỜNG TỪ .ENV (TÊN FILE LÀ .env, CÙNG CẤP VỚI THƯ MỤC SETTINGS NÀY) ---
 try:
@@ -50,7 +52,7 @@ SECRET_KEY = 'django-insecure-2xr3+k=j0dvns9x86vts)qv$&9@o@3v@8l3!iu01w20r=sm49n
 DEBUG = False
 
 ALLOWED_HOSTS = ['.render.com', '127.0.0.1']
-
+SECRET_KEY1 = config('SECRET_KEY')
 
 # Application definition
 
@@ -169,7 +171,7 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-import dj_database_url
+
 
 DATABASES = {
     'default': dj_database_url.config(
